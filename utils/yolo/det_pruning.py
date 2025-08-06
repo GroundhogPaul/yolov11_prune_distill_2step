@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 import torch
-from ultralytics.nn.modules import Bottleneck, Conv, DWConv, C2f, SPPF, Detect, C3k2
+from ultralytics.nn.modules import Bottleneck, Conv, DWConv, C2f, SPPF, Detect, Pose, C3k2
 from torch.nn.modules.container import Sequential
 import os
 
@@ -24,11 +24,20 @@ class PRUNE():
                 b = m.bias.abs().detach()
                 ws.append(w)
                 bs.append(b)
-                print(name, w.max().item(), w.min().item(), b.max().item(), b.min().item())
-                print()
+                print(f"{name}: wMax = {w.max().item():.3f}, wMin = {w.min().item():.3f}")
+                # print(f"{name}: wMax = {w.max().item():.3f}, wMin = {w.min().item():.3f}, bMax = {b.max().item():.3f}, bMin = {b.min().item():.3f}")
         # keep
         ws = torch.cat(ws)
         self.threshold = torch.sort(ws, descending=True)[0][int(len(ws) * factor)]
+        print("----- self.threshold = ", self.threshold.item(), " -----")
+
+        # print for each layer, how many channels will be kept
+        for name, m in model.named_modules():
+            if isinstance(m, torch.nn.BatchNorm2d):
+                w = m.weight.abs().detach()
+                b = m.bias.abs().detach()
+                wAfterPrune = w[w >= self.threshold]
+                print(f"{name}: weight number before prune = {len(w)}, after = {len(wAfterPrune)}")
 
     def prune_conv(self, conv1: Conv, conv2: Conv):
         ## TODO: assert the yype of conv1 must be Conv, and conv2 can be Conv or Sequential
@@ -43,8 +52,8 @@ class PRUNE():
             local_threshold = local_threshold * 0.5
         n = len(keep_idxs)
         # n = max(int(len(idxs) * 0.8), p)
-        # print(n / len(gamma) * 100) # percent of remaining convs
         conv1.bn.weight.data = gamma[keep_idxs]
+        print("  n before = ", len(gamma), ", n after = ", n)
         conv1.bn.bias.data = beta[keep_idxs]
         conv1.bn.running_var.data = conv1.bn.running_var.data[keep_idxs]
         conv1.bn.running_mean.data = conv1.bn.running_mean.data[keep_idxs]
@@ -112,11 +121,13 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
     ### 1. 剪枝C3k2 中的Bottleneck
     for name, m in yolo.model.named_modules():
         if isinstance(m, Bottleneck):
+            print("剪枝C3k2中的Bottleneck的隐藏层: ", name, end=' ')
             pruning.prune_conv(m.cv1, m.cv2)
 
     ### 2. 指定剪枝不同模块之间的卷积核
     seq = yolo.model.model
-    for i in [3, 5, 7, 8]:
+    for i in [3,5]:
+        print(f"剪枝模块{i}和模块{i+1}的连接: ", end=' ')
         pruning.prune(seq[i], seq[i + 1])
 
     ### 3. 对检测头进行剪枝
@@ -125,14 +136,16 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
     # 在P5层: seq[21]之后的网络节点与其相连的有 detect.cv2[2] 、detect.cv3[2]
     detect: Detect = seq[-1]
     # proto = detect.proto
-    last_inputs = [seq[16], seq[19], seq[22]]
-    colasts = [seq[17], seq[20], None]
+    last_inputs = [seq[10], seq[13]]
+    colasts = [seq[11], None]
     for idx, (last_input, colast, cv2, cv3) in enumerate(zip(last_inputs, colasts, detect.cv2, detect.cv3)):
-        pruning.prune(last_input, [colast, cv2[0], cv3[0]])
+        print(f"剪枝输出模块anchor {idx}")
+        # pruning.prune(last_input, [colast, cv2[0], cv3[0]])
         pruning.prune(cv2[0], cv2[1])
         pruning.prune(cv2[1], cv2[2])
         pruning.prune(cv3[0], cv3[1])
         pruning.prune(cv3[1], cv3[2])
+        pass
 
     ### 4. 模型梯度设置与保存
     for name, p in yolo.model.named_parameters():
