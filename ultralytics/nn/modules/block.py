@@ -500,7 +500,6 @@ class Bottleneck(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply bottleneck with optional shortcut connection."""
-        # return self.cv2(self.cv1(x))
         return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
 
 

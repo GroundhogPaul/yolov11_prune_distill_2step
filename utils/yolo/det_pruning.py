@@ -95,15 +95,13 @@ class PRUNE():
             conv.weight.data = conv.weight.data[:, keep_idxs]
 
     def prune_C3k2(self, m: C3k2):
-        assert isinstance(m, C3k2), "m1 must be an instance of C3k2"
+        assert isinstance(m, C3k2), "m must be an instance of C3k2"
         conv1 = m.cv1
         if isinstance(m.m[0], Bottleneck):
-            assert len(m.m) == 1
-            conv2b = m.m[0].cv1
-            print("I will prune you")
-            assert isinstance(conv2b, Conv), "m1 must be an instance of C3k2"
+            assert len(m.m) == 1 # only one bottleneck is supported, or would be too complicated
+            bottneck = m.m[0]
         elif isinstance(m.m[0], C3k):
-            print("I will prune you, but later")
+            print("I won't prune you: C3k")
             return
         else:
             raise TypeError(f"Unsupported type {type(m.m[0])} in C3k2") 
@@ -121,14 +119,11 @@ class PRUNE():
             keep_idxs = torch.where(gamma.abs() >= local_threshold)[0]
             local_threshold = local_threshold * 0.5
         nNew = len(keep_idxs)
+        print("  nOld = ", nOld, ", nNew = ", nNew)
         if nNew + 1 >= nOld:  # 如果剪枝后卷积核数量没有减少，则不进行剪枝
             return
         
         # --- Prune conv1 output --- 
-        # if isinstance(m.m[0], Bottleneck):
-        keep_idxs = torch.cat((keep_idxs[keep_idxs < (nOld // 2)], torch.range(nOld//2, nOld - 1, dtype=torch.int64)), dim = 0)
-        nNew = len(keep_idxs)
-        print("  nOld = ", nOld, ", nNew = ", nNew)
         conv1.bn.weight.data = gamma[keep_idxs]
         conv1.bn.bias.data = beta[keep_idxs]
         conv1.bn.running_var.data = conv1.bn.running_var.data[keep_idxs]
@@ -139,24 +134,33 @@ class PRUNE():
         if conv1.conv.bias is not None:
             conv1.conv.bias.data = conv1.conv.bias.data[keep_idxs]
         # --- allocate the keep_idxs to the 1st half and the 2nd half --- #
-        print(keep_idxs)
         m.nCV1out_1stHalf = (keep_idxs < nOld // 2).sum()
         m.nCV1out_2ndHalf = (keep_idxs >= nOld // 2).sum()
+        print("  m.nCV1out_1stHalf = ", m.nCV1out_1stHalf, ", m.nCV1out_2ndHalf = ", m.nCV1out_2ndHalf)
 
-        # ----- Prune conv2a input ----- # Too complicated because of BottoleNeck structure
-
+        # ----- Prune BottleNeck input and output ----- #
+        # --- prune bottleneck 的cv1的输入
         keep_idxs_2ndHalf = keep_idxs[keep_idxs >= (nOld//2)] - (nOld//2)
-        conv2b.conv.in_channels = len(keep_idxs_2ndHalf)
-        conv2b.conv.weight.data = conv2b.conv.weight.data[:, keep_idxs_2ndHalf]
+        btcv1 = bottneck.cv1
+        btcv1.conv.in_channels = len(keep_idxs_2ndHalf)
+        btcv1.conv.weight.data = btcv1.conv.weight.data[:, keep_idxs_2ndHalf]
+        # --- prune bottleneck 的cv2的输出
+        btcv2 = bottneck.cv2
+        btcv2.bn.weight.data = btcv2.bn.weight.data.detach()[keep_idxs_2ndHalf]
+        btcv2.bn.bias.data = btcv2.bn.bias.detach()[keep_idxs_2ndHalf]
+        btcv2.bn.running_var.data = btcv2.bn.running_var.data[keep_idxs_2ndHalf]
+        btcv2.bn.running_mean.data = btcv2.bn.running_mean.data[keep_idxs_2ndHalf]
+        btcv2.bn.num_features = len(keep_idxs_2ndHalf)
+        btcv2.conv.weight.data = btcv2.conv.weight.data[keep_idxs_2ndHalf]
+        btcv2.conv.out_channels = len(keep_idxs_2ndHalf)
+        if btcv2.conv.bias is not None:
+            btcv2.conv.bias.data = btcv2.conv.bias.data[keep_idxs_2ndHalf]
         
         # ----- Prune conv2b input ----- #
-        keep_idxs_1stHalf = keep_idxs[keep_idxs < (nOld//2)]
-        keep_idxs_1stHalf_remain = torch.range(nOld//2, conv2a.conv.in_channels - 1, dtype=torch.int64)
-        keep_idxs_1stHalf = torch.cat((keep_idxs_1stHalf, keep_idxs_1stHalf_remain), dim=0)
-        print(keep_idxs_1stHalf)
-        # keep_idx_1stHalf = np.concatenate(keep_idxs_1stHalf, np.range(nOld//2keep_idxs_2ndHalf + (nOld//2)))
-        conv2a.conv.weight.data = conv2a.conv.weight.data[:, keep_idxs_1stHalf]
-        conv2a.conv.in_channels = len(keep_idxs_1stHalf)
+        keep_idxs_out = torch.cat((keep_idxs, keep_idxs_2ndHalf + nOld)) # output of conv1 + output of bottleneck
+        conv2a.conv.weight.data = conv2a.conv.weight.data[:, keep_idxs_out]
+        # print(conv2a.conv.in_channels, len(keep_idxs_out))
+        conv2a.conv.in_channels = len(keep_idxs_out)
 
         pass
 
@@ -172,7 +176,6 @@ class PRUNE():
         for i, item in enumerate(m2):
             if isinstance(item, C3k2) or isinstance(item, SPPF):
                 m2[i] = item.cv1
-
 
         self.prune_conv(m1, m2)
 
@@ -199,7 +202,7 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
 
     ### 2. 指定剪枝不同模块之间的卷积核
     seq = yolo.model.model
-    for i in [3,5]:
+    for i in [3,5]: # TODO prune 6
         print(f"剪枝模块{i}和模块{i+1}的连接: ", end=' ')
         pruning.prune(seq[i], seq[i + 1])
 
