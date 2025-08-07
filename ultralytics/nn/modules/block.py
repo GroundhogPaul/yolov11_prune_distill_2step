@@ -312,15 +312,23 @@ class C2f(nn.Module):
         self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
         self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
 
+        self.nCV1out_1stHalf = self.c # for future pruning
+        self.nCV1out_2ndHalf = self.c # for future pruning
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through C2f layer."""
-        y = list(self.cv1(x).chunk(2, 1))
+
+        # y = list(self.cv1(x).chunk(2, 1))
+        y = self.cv1(x).split((self.nCV1out_1stHalf, self.nCV1out_2ndHalf), 1)
+        y = [y[0], y[1]]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
 
     def forward_split(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass using split() instead of chunk()."""
-        y = self.cv1(x).split((self.c, self.c), 1)
+
+        # y = self.cv1(x).split((self.c, self.c), 1)
+        y = self.cv1(x).split((self.nCV1out_1stHalf, self.nCV1out_2ndHalf), 1)
         y = [y[0], y[1]]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
@@ -492,6 +500,7 @@ class Bottleneck(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Apply bottleneck with optional shortcut connection."""
+        # return self.cv2(self.cv1(x))
         return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
 
 
