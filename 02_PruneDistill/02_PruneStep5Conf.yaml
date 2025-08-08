@@ -1,0 +1,24 @@
+# step5: Distill
+task: pose
+pretrained: true
+resume: False
+
+project: runs/LapaTrain
+name: 176xPruneStep2_
+
+# Data Augmentation
+imgsz: 176
+translate: 0.5
+scale: 0.7
+degrees: 179.999
+mosaic: 1.0
+close_mosaic: -1
+
+# training setting
+single_cls: true
+epochs: 1500
+batch: 128
+device: '0'
+workers: 0
+patience: 0
+amp: False
