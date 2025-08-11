@@ -1,14 +1,14 @@
-from ultralytics import YOLO
-import torch
-from ultralytics.nn.modules import Bottleneck, Conv, C2f, SPPF, Detect, C3k2
-from torch.nn.modules.container import Sequential
-import os
 
+import torch
+from torch.nn.modules.container import Sequential
+
+from ultralytics import YOLO
+from ultralytics.nn.modules import SPPF, Bottleneck, C3k2, Conv, Detect
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 
-class PRUNE():
+class PRUNE:
     def __init__(self) -> None:
         self.threshold = None
 
@@ -59,7 +59,8 @@ class PRUNE():
         if not isinstance(conv2, list):
             conv2 = [conv2]
         for item in conv2:
-            if item is None: continue
+            if item is None:
+                continue
             if isinstance(item, Conv):
                 conv = item.conv
             else:
@@ -118,7 +119,9 @@ def do_pruning(modelpath, savepath):
     proto = detect.proto
     last_inputs = [seq[16], seq[19], seq[22]]
     colasts = [seq[17], seq[20], None]
-    for idx, (last_input, colast, cv2, cv3, cv4) in enumerate(zip(last_inputs, colasts, detect.cv2, detect.cv3, detect.cv4)):
+    for idx, (last_input, colast, cv2, cv3, cv4) in enumerate(
+        zip(last_inputs, colasts, detect.cv2, detect.cv3, detect.cv4)
+    ):
         if idx == 0:
             pruning.prune(last_input, [colast, cv2[0], cv3[0], cv4[0], proto])
         else:
@@ -134,9 +137,8 @@ def do_pruning(modelpath, savepath):
     for name, p in yolo.model.named_parameters():
         p.requires_grad = True
 
-    yolo.val(data='data.yaml', batch=2, device=0, workers=0)
+    yolo.val(data="data.yaml", batch=2, device=0, workers=0)
     torch.save(yolo.ckpt, savepath)
-
 
 
 if __name__ == "__main__":

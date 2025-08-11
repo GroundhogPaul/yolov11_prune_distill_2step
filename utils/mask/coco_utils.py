@@ -3,9 +3,10 @@ import os
 import torch
 import torch.utils.data
 import torchvision
-from . import transforms as T
 from pycocotools import mask as coco_mask
 from pycocotools.coco import COCO
+
+from . import transforms as T
 
 
 def convert_coco_poly_to_mask(segmentations, height, width):

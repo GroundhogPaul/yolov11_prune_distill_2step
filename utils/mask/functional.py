@@ -16,8 +16,9 @@ try:
 except ImportError:
     accimage = None
 
+from . import _functional_pil as F_pil
+from . import _functional_tensor as F_t
 from .utils import _log_api_usage_once
-from . import _functional_pil as F_pil, _functional_tensor as F_t
 
 
 class InterpolationMode(Enum):
@@ -393,7 +394,7 @@ def resize(
 ) -> Tensor:
     r"""Resize the input image to the given size.
     If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions
+    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
 
     Args:
         img (PIL Image or Tensor): Image to be resized.
@@ -484,7 +485,7 @@ def pad(img: Tensor, padding: List[int], fill: Union[int, float] = 0, padding_mo
     If the image is torch Tensor, it is expected
     to have [..., H, W] shape, where ... means at most 2 leading dimensions for mode reflect and symmetric,
     at most 3 leading dimensions for mode edge,
-    and an arbitrary number of leading dimensions for mode constant
+    and an arbitrary number of leading dimensions for mode constant.
 
     Args:
         img (PIL Image or Tensor): Image to be padded.
@@ -544,7 +545,6 @@ def crop(img: Tensor, top: int, left: int, height: int, width: int) -> Tensor:
     Returns:
         PIL Image or Tensor: Cropped image.
     """
-
     if not torch.jit.is_scripting() and not torch.jit.is_tracing():
         _log_api_usage_once(crop)
     if not isinstance(img, torch.Tensor):
@@ -606,7 +606,7 @@ def resized_crop(
 ) -> Tensor:
     """Crop the given image and resize it to desired size.
     If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions
+    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
 
     Notably used in :class:`~torchvision.transforms.RandomResizedCrop`.
 
@@ -641,6 +641,7 @@ def resized_crop(
 
             The default value changed from ``None`` to ``True`` in
             v0.17, for the PIL and Tensor backends to be consistent.
+
     Returns:
         PIL Image or Tensor: Cropped image.
     """
@@ -777,7 +778,7 @@ def vflip(img: Tensor) -> Tensor:
 def five_crop(img: Tensor, size: List[int]) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
     """Crop the given image into four corners and the central crop.
     If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions
+    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
 
     .. Note::
         This transform returns a tuple of images and there may be a
@@ -826,7 +827,7 @@ def ten_crop(
     Crop the given image into four corners and the central crop plus the
     flipped version of these (horizontal flipping is used by default).
     If the image is torch Tensor, it is expected
-    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions
+    to have [..., H, W] shape, where ... means an arbitrary number of leading dimensions.
 
     .. Note::
         This transform returns a tuple of images and there may be a
@@ -992,6 +993,7 @@ def adjust_gamma(img: Tensor, gamma: float, gain: float = 1) -> Tensor:
             gamma larger than 1 make the shadows darker,
             while gamma smaller than 1 make dark regions lighter.
         gain (float): The constant multiplier.
+
     Returns:
         PIL Image or Tensor: Gamma correction adjusted image.
     """
@@ -1094,6 +1096,7 @@ def rotate(
             .. note::
                 In torchscript mode single int/float value is not supported, please use a sequence
                 of length 1: ``[value, ]``.
+
     Returns:
         PIL Image or Tensor: Rotated image.
 
@@ -1267,7 +1270,7 @@ def to_grayscale(img, num_output_channels=1):
 def rgb_to_grayscale(img: Tensor, num_output_channels: int = 1) -> Tensor:
     """Convert RGB image to grayscale version of image.
     If the image is torch Tensor, it is expected
-    to have [..., 3, H, W] shape, where ... means an arbitrary number of leading dimensions
+    to have [..., 3, H, W] shape, where ... means an arbitrary number of leading dimensions.
 
     Note:
         Please, note that this method supports only RGB images as input. For inputs in other color spaces,
@@ -1316,7 +1319,7 @@ def erase(img: Tensor, i: int, j: int, h: int, w: int, v: Tensor, inplace: bool 
 
 
 def gaussian_blur(img: Tensor, kernel_size: List[int], sigma: Optional[List[float]] = None) -> Tensor:
-    """Performs Gaussian blurring on the image by given kernel
+    """Performs Gaussian blurring on the image by given kernel.
 
     The convolution will be using reflection padding corresponding to the kernel size, to maintain the input shape.
     If the image is torch Tensor, it is expected
@@ -1414,6 +1417,7 @@ def posterize(img: Tensor, bits: int) -> Tensor:
             it can have an arbitrary number of leading dimensions.
             If img is PIL Image, it is expected to be in mode "L" or "RGB".
         bits (int): The number of bits to keep for each channel (0-8).
+
     Returns:
         PIL Image or Tensor: Posterized image.
     """
@@ -1437,6 +1441,7 @@ def solarize(img: Tensor, threshold: float) -> Tensor:
             where ... means it can have an arbitrary number of leading dimensions.
             If img is PIL Image, it is expected to be in mode "L" or "RGB".
         threshold (float): All pixels equal or above this value are inverted.
+
     Returns:
         PIL Image or Tensor: Solarized image.
     """

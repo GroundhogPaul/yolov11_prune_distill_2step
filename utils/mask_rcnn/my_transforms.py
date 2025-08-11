@@ -2,9 +2,11 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torchvision
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torchvision import ops
-from torchvision.transforms import functional as F, InterpolationMode, transforms as T
+from torchvision.transforms import InterpolationMode
+from torchvision.transforms import functional as F
+from torchvision.transforms import transforms as T
 
 
 def _flip_coco_person_keypoints(kps, width):
@@ -27,10 +29,9 @@ class Compose:
         return image, target
 
 
-
 class RandomHorizontalFlip(T.RandomHorizontalFlip):
     def forward(
-            self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         if torch.rand(1) < self.p:
             image = F.hflip(image)
@@ -48,7 +49,7 @@ class RandomHorizontalFlip(T.RandomHorizontalFlip):
 
 class PILToTensor(nn.Module):
     def forward(
-            self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         image = F.pil_to_tensor(image)
         return image, target
@@ -61,7 +62,7 @@ class ToDtype(nn.Module):
         self.scale = scale
 
     def forward(
-            self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         if not self.scale:
             return image.to(dtype=self.dtype), target
@@ -71,13 +72,13 @@ class ToDtype(nn.Module):
 
 class RandomIoUCrop(nn.Module):
     def __init__(
-            self,
-            min_scale: float = 0.3,
-            max_scale: float = 1.0,
-            min_aspect_ratio: float = 0.5,
-            max_aspect_ratio: float = 2.0,
-            sampler_options: Optional[List[float]] = None,
-            trials: int = 40,
+        self,
+        min_scale: float = 0.3,
+        max_scale: float = 1.0,
+        min_aspect_ratio: float = 0.5,
+        max_aspect_ratio: float = 2.0,
+        sampler_options: Optional[List[float]] = None,
+        trials: int = 40,
     ):
         super().__init__()
         # Configuration similar to https://github.com/weiliu89/caffe/blob/ssd/examples/ssd/ssd_coco.py#L89-L174
@@ -91,7 +92,7 @@ class RandomIoUCrop(nn.Module):
         self.trials = trials
 
     def forward(
-            self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         if target is None:
             raise ValueError("The targets can't be None for this transform.")
@@ -158,7 +159,7 @@ class RandomIoUCrop(nn.Module):
 
 class RandomZoomOut(nn.Module):
     def __init__(
-            self, fill: Optional[List[float]] = None, side_range: Tuple[float, float] = (1.0, 4.0), p: float = 0.5
+        self, fill: Optional[List[float]] = None, side_range: Tuple[float, float] = (1.0, 4.0), p: float = 0.5
     ):
         super().__init__()
         if fill is None:
@@ -176,7 +177,7 @@ class RandomZoomOut(nn.Module):
         return tuple(int(x) for x in self.fill) if is_pil else 0
 
     def forward(
-            self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         if isinstance(image, torch.Tensor):
             if image.ndimension() not in {2, 3}:
@@ -208,9 +209,9 @@ class RandomZoomOut(nn.Module):
         if isinstance(image, torch.Tensor):
             # PyTorch's pad supports only integers on fill. So we need to overwrite the colour
             v = torch.tensor(self.fill, device=image.device, dtype=image.dtype).view(-1, 1, 1)
-            image[..., :top, :] = image[..., :, :left] = image[..., (top + orig_h):, :] = image[
-                                                                                          ..., :, (left + orig_w):
-                                                                                          ] = v
+            image[..., :top, :] = image[..., :, :left] = image[..., (top + orig_h) :, :] = image[
+                ..., :, (left + orig_w) :
+            ] = v
 
         if target is not None:
             target["boxes"][:, 0::2] += left
@@ -221,12 +222,12 @@ class RandomZoomOut(nn.Module):
 
 class RandomPhotometricDistort(nn.Module):
     def __init__(
-            self,
-            contrast: Tuple[float, float] = (0.5, 1.5),
-            saturation: Tuple[float, float] = (0.5, 1.5),
-            hue: Tuple[float, float] = (-0.05, 0.05),
-            brightness: Tuple[float, float] = (0.875, 1.125),
-            p: float = 0.5,
+        self,
+        contrast: Tuple[float, float] = (0.5, 1.5),
+        saturation: Tuple[float, float] = (0.5, 1.5),
+        hue: Tuple[float, float] = (-0.05, 0.05),
+        brightness: Tuple[float, float] = (0.875, 1.125),
+        p: float = 0.5,
     ):
         super().__init__()
         self._brightness = T.ColorJitter(brightness=brightness)
@@ -236,7 +237,7 @@ class RandomPhotometricDistort(nn.Module):
         self.p = p
 
     def forward(
-            self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         if isinstance(image, torch.Tensor):
             if image.ndimension() not in {2, 3}:
@@ -293,11 +294,11 @@ class ScaleJitter(nn.Module):
     """
 
     def __init__(
-            self,
-            target_size: Tuple[int, int],
-            scale_range: Tuple[float, float] = (0.1, 2.0),
-            interpolation: InterpolationMode = InterpolationMode.BILINEAR,
-            antialias=True,
+        self,
+        target_size: Tuple[int, int],
+        scale_range: Tuple[float, float] = (0.1, 2.0),
+        interpolation: InterpolationMode = InterpolationMode.BILINEAR,
+        antialias=True,
     ):
         super().__init__()
         self.target_size = target_size
@@ -306,7 +307,7 @@ class ScaleJitter(nn.Module):
         self.antialias = antialias
 
     def forward(
-            self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         if isinstance(image, torch.Tensor):
             if image.ndimension() not in {2, 3}:
@@ -414,10 +415,10 @@ class FixedSizeCrop(nn.Module):
 
 class RandomShortestSize(nn.Module):
     def __init__(
-            self,
-            min_size: Union[List[int], Tuple[int], int],
-            max_size: int,
-            interpolation: InterpolationMode = InterpolationMode.BILINEAR,
+        self,
+        min_size: Union[List[int], Tuple[int], int],
+        max_size: int,
+        interpolation: InterpolationMode = InterpolationMode.BILINEAR,
     ):
         super().__init__()
         self.min_size = [min_size] if isinstance(min_size, int) else list(min_size)
@@ -425,7 +426,7 @@ class RandomShortestSize(nn.Module):
         self.interpolation = interpolation
 
     def forward(
-            self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
+        self, image: Tensor, target: Optional[Dict[str, Tensor]] = None
     ) -> Tuple[Tensor, Optional[Dict[str, Tensor]]]:
         _, orig_height, orig_width = F.get_dimensions(image)
 
@@ -449,12 +450,12 @@ class RandomShortestSize(nn.Module):
 
 
 def _copy_paste(
-        image: torch.Tensor,
-        target: Dict[str, Tensor],
-        paste_image: torch.Tensor,
-        paste_target: Dict[str, Tensor],
-        blending: bool = True,
-        resize_interpolation: F.InterpolationMode = F.InterpolationMode.BILINEAR,
+    image: torch.Tensor,
+    target: Dict[str, Tensor],
+    paste_image: torch.Tensor,
+    paste_target: Dict[str, Tensor],
+    blending: bool = True,
+    resize_interpolation: F.InterpolationMode = F.InterpolationMode.BILINEAR,
 ) -> Tuple[torch.Tensor, Dict[str, Tensor]]:
     # Random paste targets selection:
     num_masks = len(paste_target["masks"])
@@ -555,7 +556,7 @@ class SimpleCopyPaste(torch.nn.Module):
         self.blending = blending
 
     def forward(
-            self, images: List[torch.Tensor], targets: List[Dict[str, Tensor]]
+        self, images: List[torch.Tensor], targets: List[Dict[str, Tensor]]
     ) -> Tuple[List[torch.Tensor], List[Dict[str, Tensor]]]:
         torch._assert(
             isinstance(images, (list, tuple)) and all([isinstance(v, torch.Tensor) for v in images]),
