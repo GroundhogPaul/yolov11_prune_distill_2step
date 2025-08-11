@@ -14,6 +14,7 @@ from ultralytics.utils.torch_utils import autocast
 from .metrics import bbox_iou, probiou
 from .tal import bbox2dist
 
+from utils.yolo.vfloss import VFLoss
 
 class VarifocalLoss(nn.Module):
     """
@@ -112,6 +113,7 @@ class BboxLoss(nn.Module):
         """Initialize the BboxLoss module with regularization maximum and DFL settings."""
         super().__init__()
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
+        self.vfl_loss = VFLoss(nn.BCEWithLogitsLoss(reduction="none"))
 
     def forward(
         self,
@@ -356,6 +358,8 @@ class v8SegmentationLoss(v8DetectionLoss):
         # Cls loss
         # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
         loss[2] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum  # BCE
+        self.vf = VFLoss(nn.BCEWithLogitsLoss(reduction="none"))
+        loss[2] += self.vf(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum
 
         if fg_mask.sum():
             # Bbox loss
