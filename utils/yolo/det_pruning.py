@@ -188,7 +188,7 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
     yolo = YOLO(modelpath)  # build a new model from scratch
     pruning.get_threshold(yolo.model, pruning_rate)  # 这里的0.8为剪枝率。
 
-    ### 1. 剪枝C3k2 中的Bottleneck
+    ### 1. 剪枝C3k2中的Bottleneck
     for name, m in yolo.model.named_modules():
         if isinstance(m, Bottleneck):
             print("剪枝C3k2中的Bottleneck的隐藏层: ", name, end=' ')
