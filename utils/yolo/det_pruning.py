@@ -28,8 +28,10 @@ class PRUNE():
                 # print(f"{name}: wMax = {w.max().item():.3f}, wMin = {w.min().item():.3f}, bMax = {b.max().item():.3f}, bMin = {b.min().item():.3f}")
         # keep
         ws = torch.cat(ws)
-        self.threshold = torch.sort(ws, descending=True)[0][int(len(ws) * factor)]
-        print("----- self.threshold = ", self.threshold.item(), " -----")
+        wsDesending = torch.sort(ws, descending=True)[0]
+        self.threshold = wsDesending[int(len(ws) * factor)]
+        self.threshold = max(self.threshold, 0.01)  # ensure threshold is not too small
+        print("----- self.threshold = ", self.threshold, " -----")
 
         # print for each layer, how many channels will be kept
         for name, m in model.named_modules():
