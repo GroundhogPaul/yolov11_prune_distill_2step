@@ -10,7 +10,6 @@ import numpy as np
 import torch
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
-
 __all__ = [
     "make_grid",
     "save_image",
@@ -141,7 +140,6 @@ def save_image(
             If a file object was used instead of a filename, this parameter should always be used.
         **kwargs: Other arguments are documented in ``make_grid``.
     """
-
     if not torch.jit.is_scripting() and not torch.jit.is_tracing():
         _log_api_usage_once(save_image)
     grid = make_grid(tensor, **kwargs)
@@ -162,7 +160,6 @@ def draw_bounding_boxes(
     font: Optional[str] = None,
     font_size: Optional[int] = None,
 ) -> torch.Tensor:
-
     """
     Draws bounding boxes on given RGB image.
     The image values should be uint8 in [0, 255] or float in [0, 1].
@@ -267,7 +264,6 @@ def draw_segmentation_masks(
     alpha: float = 0.8,
     colors: Optional[Union[List[Union[str, Tuple[int, int, int]]], str, Tuple[int, int, int]]] = None,
 ) -> torch.Tensor:
-
     """
     Draws segmentation masks on given RGB image.
     The image values should be uint8 in [0, 255] or float in [0, 1].
@@ -285,7 +281,6 @@ def draw_segmentation_masks(
     Returns:
         img (Tensor[C, H, W]): Image Tensor, with segmentation masks drawn on top.
     """
-
     if not torch.jit.is_scripting() and not torch.jit.is_tracing():
         _log_api_usage_once(draw_segmentation_masks)
     if not isinstance(image, torch.Tensor):
@@ -340,7 +335,6 @@ def draw_keypoints(
     width: int = 3,
     visibility: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-
     """
     Draws Keypoints on given RGB image.
     The image values should be uint8 in [0, 255] or float in [0, 1].
@@ -372,7 +366,6 @@ def draw_keypoints(
     Returns:
         img (Tensor[C, H, W]): Image Tensor with keypoints drawn.
     """
-
     if not torch.jit.is_scripting() and not torch.jit.is_tracing():
         _log_api_usage_once(draw_keypoints)
     # validate image
@@ -450,7 +443,6 @@ def draw_keypoints(
 # Flow visualization code adapted from https://github.com/tomrunia/OpticalFlow_Visualization
 @torch.no_grad()
 def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
-
     """
     Converts a flow to an RGB image.
 
@@ -461,7 +453,6 @@ def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
         img (Tensor): Image Tensor of dtype uint8 where each color corresponds
             to a given flow direction. Shape is (N, 3, H, W) or (3, H, W) depending on the input.
     """
-
     if flow.dtype != torch.float:
         raise ValueError(f"Flow should be of dtype torch.float, got {flow.dtype}.")
 
@@ -484,16 +475,15 @@ def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
 
 @torch.no_grad()
 def _normalized_flow_to_image(normalized_flow: torch.Tensor) -> torch.Tensor:
-
     """
     Converts a batch of normalized flow to an RGB image.
 
     Args:
         normalized_flow (torch.Tensor): Normalized flow tensor of shape (N, 2, H, W)
+
     Returns:
        img (Tensor(N, 3, H, W)): Flow visualization image of dtype uint8.
     """
-
     N, _, H, W = normalized_flow.shape
     device = normalized_flow.device
     flow_image = torch.zeros((N, 3, H, W), dtype=torch.uint8, device=device)
@@ -526,7 +516,6 @@ def _make_colorwheel() -> torch.Tensor:
     Returns:
         colorwheel (Tensor[55, 3]): Colorwheel Tensor.
     """
-
     RY = 15
     YG = 6
     GC = 4
@@ -617,7 +606,6 @@ def _parse_colors(
 
 
 def _log_api_usage_once(obj: Any) -> None:
-
     """
     Logs API usage(module and name) within an organization.
     In a large ecosystem, it's often useful to track the PyTorch and
@@ -647,7 +635,7 @@ def _make_ntuple(x: Any, n: int) -> Tuple[Any, ...]:
     """
     Make n-tuple from input x. If x is an iterable, then we just convert it to tuple.
     Otherwise, we will make a tuple of length n, all with value of x.
-    reference: https://github.com/pytorch/pytorch/blob/master/torch/nn/modules/utils.py#L8
+    reference: https://github.com/pytorch/pytorch/blob/master/torch/nn/modules/utils.py#L8.
 
     Args:
         x (Any): input value
@@ -657,6 +645,6 @@ def _make_ntuple(x: Any, n: int) -> Tuple[Any, ...]:
         return tuple(x)
     return tuple(repeat(x, n))
 
+
 def collate_fn(batch):
     return tuple(zip(*batch))
-

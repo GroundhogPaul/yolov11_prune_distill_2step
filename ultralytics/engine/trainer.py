@@ -55,22 +55,25 @@ from ultralytics.utils.torch_utils import (
     unset_deterministic,
 )
 
+
 class CWDLoss(nn.Module):
     """PyTorch version of `Channel-wise Distillation for Semantic Segmentation.
     <https://arxiv.org/abs/2011.13256>`_.
     """
 
     def __init__(self, channels_s, channels_t, tau=1.0):
-        super(CWDLoss, self).__init__()
+        super().__init__()
         self.tau = tau
 
     def forward(self, y_s, y_t):
         """Forward computation.
+
         Args:
             y_s (list): The student model prediction with
                 shape (N, C, H, W) in list.
             y_t (list): The teacher model prediction with
                 shape (N, C, H, W) in list.
+
         Return:
             torch.Tensor: The calculated loss value of all stages.
         """
@@ -84,12 +87,14 @@ class CWDLoss(nn.Module):
 
             # normalize in channel diemension
             import torch.nn.functional as F
+
             softmax_pred_T = F.softmax(t.view(-1, W * H) / self.tau, dim=1)  # [N*C, H*W]
 
             logsoftmax = torch.nn.LogSoftmax(dim=1)
             cost = torch.sum(
-                softmax_pred_T * logsoftmax(t.view(-1, W * H) / self.tau) -
-                softmax_pred_T * logsoftmax(s.view(-1, W * H) / self.tau)) * (self.tau ** 2)
+                softmax_pred_T * logsoftmax(t.view(-1, W * H) / self.tau)
+                - softmax_pred_T * logsoftmax(s.view(-1, W * H) / self.tau)
+            ) * (self.tau**2)
 
             losses.append(cost / (C * N))
         loss = sum(losses)
@@ -99,8 +104,8 @@ class CWDLoss(nn.Module):
 
 class MGDLoss(nn.Module):
     def __init__(self, channels_s, channels_t, alpha_mgd=0.00002, lambda_mgd=0.65):
-        super(MGDLoss, self).__init__()
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        super().__init__()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.alpha_mgd = alpha_mgd
         self.lambda_mgd = lambda_mgd
@@ -109,17 +114,20 @@ class MGDLoss(nn.Module):
             nn.Sequential(
                 nn.Conv2d(channel_s, channel, kernel_size=3, padding=1),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(channel, channel, kernel_size=3, padding=1)).to(device) for channel_s, channel in
-            zip(channels_s, channels_t)
+                nn.Conv2d(channel, channel, kernel_size=3, padding=1),
+            ).to(device)
+            for channel_s, channel in zip(channels_s, channels_t)
         ]
 
     def forward(self, y_s, y_t, layer=None):
         """Forward computation.
+
         Args:
             y_s (list): The student model prediction with
                 shape (N, C, H, W) in list.
             y_t (list): The teacher model prediction with
                 shape (N, C, H, W) in list.
+
         Return:
             torch.Tensor: The calculated loss value of all stages.
         """
@@ -136,7 +144,7 @@ class MGDLoss(nn.Module):
         return loss
 
     def get_dis_loss(self, preds_S, preds_T, idx):
-        loss_mse = nn.MSELoss(reduction='sum')
+        loss_mse = nn.MSELoss(reduction="sum")
         N, C, H, W = preds_T.shape
 
         device = preds_S.device
@@ -150,29 +158,26 @@ class MGDLoss(nn.Module):
 
         return dis_loss
 
+
 class FeatureLoss(nn.Module):
-    def __init__(self, channels_s, channels_t, distiller='mgd', loss_weight=1.0):
-        super(FeatureLoss, self).__init__()
+    def __init__(self, channels_s, channels_t, distiller="mgd", loss_weight=1.0):
+        super().__init__()
         self.loss_weight = loss_weight
         self.distiller = distiller
 
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.align_module = nn.ModuleList([
-            nn.Conv2d(channel, tea_channel, kernel_size=1, stride=1, padding=0).to(device)
-            for channel, tea_channel in zip(channels_s, channels_t)
-        ])
-        self.norm = [
-            nn.BatchNorm2d(tea_channel, affine=False).to(device)
-            for tea_channel in channels_t
-        ]
-        self.norm1 = [
-            nn.BatchNorm2d(set_channel, affine=False).to(device)
-            for set_channel in channels_s
-        ]
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.align_module = nn.ModuleList(
+            [
+                nn.Conv2d(channel, tea_channel, kernel_size=1, stride=1, padding=0).to(device)
+                for channel, tea_channel in zip(channels_s, channels_t)
+            ]
+        )
+        self.norm = [nn.BatchNorm2d(tea_channel, affine=False).to(device) for tea_channel in channels_t]
+        self.norm1 = [nn.BatchNorm2d(set_channel, affine=False).to(device) for set_channel in channels_s]
 
-        if distiller == 'mgd':
+        if distiller == "mgd":
             self.feature_loss = MGDLoss(channels_s, channels_t)
-        elif distiller == 'cwd':
+        elif distiller == "cwd":
             self.feature_loss = CWDLoss(channels_s, channels_t)
         else:
             raise NotImplementedError
@@ -184,7 +189,7 @@ class FeatureLoss(nn.Module):
 
         for idx, (s, t) in enumerate(zip(y_s, y_t)):
             # change ---
-            if self.distiller == 'cwd':
+            if self.distiller == "cwd":
                 s = self.align_module[idx](s)
                 s = self.norm[idx](s)
             else:
@@ -199,7 +204,6 @@ class FeatureLoss(nn.Module):
 
 class Distillation_loss:
     def __init__(self, model_s, model_t, layers, distiller="CWDLoss"):  # model must be de-paralleled
-
         self.distiller = distiller
         # distillation layers
 
@@ -223,7 +227,6 @@ class Distillation_loss:
                             self.teacher_module_pairs.append(ml)
 
         for mname, ml in model_s.named_modules():
-
             if mname is not None:
                 name = mname.split(".")
                 if name[0] == "module":
@@ -262,7 +265,7 @@ class Distillation_loss:
         #     print(mo.shape,fo.shape)
         # quant_loss += self.D_loss_fn(mo, fo)
         quant_loss += self.D_loss_fn(y_t=self.teacher_outputs, y_s=self.origin_outputs)
-        if self.distiller != 'cwd':
+        if self.distiller != "cwd":
             quant_loss *= 0.3
         self.teacher_outputs.clear()
         self.origin_outputs.clear()
@@ -660,23 +663,30 @@ class BaseTrainer:
 
                     # ----- distill change begin ----- #
                     if self.exist_dis:
-                        distill_weight = (((1 - math.cos(i * math.pi / len(self.train_loader))) / 2) * (
-                                    0.1 - 1) + 1) * 0.01
+                        distill_weight = (
+                            ((1 - math.cos(i * math.pi / len(self.train_loader))) / 2) * (0.1 - 1) + 1
+                        ) * 0.01
                         with torch.no_grad():
-                            pred = self.Distillation(batch['img'])
+                            self.Distillation(batch["img"])
 
                         self.d_loss = distillation_loss.get_loss()
                         self.d_loss *= distill_weight
                         if i == 0:
-                            print("distillation_loss : ", self.d_loss, '-----------------', "loss : ", self.loss,
-                                  '-----------------')
+                            print(
+                                "distillation_loss : ",
+                                self.d_loss,
+                                "-----------------",
+                                "loss : ",
+                                self.loss,
+                                "-----------------",
+                            )
                         self.loss += self.d_loss
                     # ----- distill change end ----- #
 
                 # Backward
                 self.scaler.scale(self.loss).backward()
 
-                # ----- add prune and distill pxy: step2_Constraint_train: l1 regulation ----- # 
+                # ----- add prune and distill pxy: step2_Constraint_train: l1 regulation ----- #
                 if i < 10 and RANK in {-1, 0}:
                     print("----- l1 shrink BN here, only for step 2, current open -----")
                 l1_lambda = 1e-2 * (1 - 0.9 * epoch / self.epochs)
@@ -685,8 +695,8 @@ class BaseTrainer:
                         m.weight.grad.data.add_(l1_lambda * torch.sign(m.weight.data))
                         m.bias.grad.data.add_(1e-2 * torch.sign(m.bias.data))
                 # if i < 10 and RANK in {-1, 0}:
-                #     print("----- l1 shrink BN here, only for step 2, current close -----")                
-                # ----- add end ----- 
+                #     print("----- l1 shrink BN here, only for step 2, current close -----")
+                # ----- add end -----
 
                 # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
                 if ni - last_opt_step >= self.accumulate:
