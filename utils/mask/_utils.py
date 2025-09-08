@@ -9,9 +9,7 @@ import torch.distributed as dist
 
 
 class SmoothedValue:
-    """Track a series of values and provide access to smoothed values over a
-    window or the global series average.
-    """
+    """Track a series of values and provide access to smoothed values over a window or the global series average."""
 
     def __init__(self, window_size=20, fmt=None):
         if fmt is None:
@@ -27,9 +25,7 @@ class SmoothedValue:
         self.total += value * n
 
     def synchronize_between_processes(self):
-        """
-        Warning: does not synchronize the deque!
-        """
+        """Warning: does not synchronize the deque!"""
         if not is_dist_avail_and_initialized():
             return
         t = torch.tensor([self.count, self.total], dtype=torch.float64, device="cuda")
@@ -69,11 +65,12 @@ class SmoothedValue:
 
 def all_gather(data):
     """
-    Run all_gather on arbitrary picklable data (not necessarily tensors)
+    Run all_gather on arbitrary picklable data (not necessarily tensors).
+
     Args:
         data: any picklable object
     Returns:
-        list[data]: list of data gathered from each rank
+        list[data]: list of data gathered from each rank.
     """
     world_size = get_world_size()
     if world_size == 1:
@@ -213,9 +210,7 @@ def mkdir(path):
 
 
 def setup_for_distributed(is_master):
-    """
-    This function disables printing when not in master process
-    """
+    """This function disables printing when not in master process."""
     import builtins as __builtin__
 
     builtin_print = __builtin__.print
