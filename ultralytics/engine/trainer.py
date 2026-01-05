@@ -6,6 +6,8 @@ Usage:
     $ yolo mode=train model=yolo11n.pt data=coco8.yaml imgsz=640 epochs=100 batch=16
 """
 
+from __future__ import annotations
+
 import gc
 import math
 import os
@@ -55,23 +57,23 @@ from ultralytics.utils.torch_utils import (
     unset_deterministic,
 )
 
+
 class CWDLoss(nn.Module):
-    """PyTorch version of `Channel-wise Distillation for Semantic Segmentation.
-    <https://arxiv.org/abs/2011.13256>`_.
+    """PyTorch version of `Channel-wise Distillation for Semantic Segmentation. <https://arxiv.org/abs/2011.13256>`_.
     """
 
     def __init__(self, channels_s, channels_t, tau=1.0):
-        super(CWDLoss, self).__init__()
+        super().__init__()
         self.tau = tau
 
     def forward(self, y_s, y_t):
         """Forward computation.
+
         Args:
-            y_s (list): The student model prediction with
-                shape (N, C, H, W) in list.
-            y_t (list): The teacher model prediction with
-                shape (N, C, H, W) in list.
-        Return:
+            y_s (list): The student model prediction with shape (N, C, H, W) in list.
+            y_t (list): The teacher model prediction with shape (N, C, H, W) in list.
+
+        Returns:
             torch.Tensor: The calculated loss value of all stages.
         """
         assert len(y_s) == len(y_t)
@@ -84,12 +86,14 @@ class CWDLoss(nn.Module):
 
             # normalize in channel diemension
             import torch.nn.functional as F
+
             softmax_pred_T = F.softmax(t.view(-1, W * H) / self.tau, dim=1)  # [N*C, H*W]
 
             logsoftmax = torch.nn.LogSoftmax(dim=1)
             cost = torch.sum(
-                softmax_pred_T * logsoftmax(t.view(-1, W * H) / self.tau) -
-                softmax_pred_T * logsoftmax(s.view(-1, W * H) / self.tau)) * (self.tau ** 2)
+                softmax_pred_T * logsoftmax(t.view(-1, W * H) / self.tau)
+                - softmax_pred_T * logsoftmax(s.view(-1, W * H) / self.tau)
+            ) * (self.tau**2)
 
             losses.append(cost / (C * N))
         loss = sum(losses)
@@ -99,8 +103,8 @@ class CWDLoss(nn.Module):
 
 class MGDLoss(nn.Module):
     def __init__(self, channels_s, channels_t, alpha_mgd=0.00002, lambda_mgd=0.65):
-        super(MGDLoss, self).__init__()
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        super().__init__()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
 
         self.alpha_mgd = alpha_mgd
         self.lambda_mgd = lambda_mgd
@@ -109,18 +113,19 @@ class MGDLoss(nn.Module):
             nn.Sequential(
                 nn.Conv2d(channel_s, channel, kernel_size=3, padding=1),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(channel, channel, kernel_size=3, padding=1)).to(device) for channel_s, channel in
-            zip(channels_s, channels_t)
+                nn.Conv2d(channel, channel, kernel_size=3, padding=1),
+            ).to(device)
+            for channel_s, channel in zip(channels_s, channels_t)
         ]
 
     def forward(self, y_s, y_t, layer=None):
         """Forward computation.
+
         Args:
-            y_s (list): The student model prediction with
-                shape (N, C, H, W) in list.
-            y_t (list): The teacher model prediction with
-                shape (N, C, H, W) in list.
-        Return:
+            y_s (list): The student model prediction with shape (N, C, H, W) in list.
+            y_t (list): The teacher model prediction with shape (N, C, H, W) in list.
+
+        Returns:
             torch.Tensor: The calculated loss value of all stages.
         """
         assert len(y_s) == len(y_t)
@@ -136,8 +141,8 @@ class MGDLoss(nn.Module):
         return loss
 
     def get_dis_loss(self, preds_S, preds_T, idx):
-        loss_mse = nn.MSELoss(reduction='sum')
-        N, C, H, W = preds_T.shape
+        loss_mse = nn.MSELoss(reduction="sum")
+        N, _C, H, W = preds_T.shape
 
         device = preds_S.device
         mat = torch.rand((N, 1, H, W)).to(device)
@@ -150,29 +155,26 @@ class MGDLoss(nn.Module):
 
         return dis_loss
 
+
 class FeatureLoss(nn.Module):
-    def __init__(self, channels_s, channels_t, distiller='mgd', loss_weight=1.0):
-        super(FeatureLoss, self).__init__()
+    def __init__(self, channels_s, channels_t, distiller="mgd", loss_weight=1.0):
+        super().__init__()
         self.loss_weight = loss_weight
         self.distiller = distiller
 
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.align_module = nn.ModuleList([
-            nn.Conv2d(channel, tea_channel, kernel_size=1, stride=1, padding=0).to(device)
-            for channel, tea_channel in zip(channels_s, channels_t)
-        ])
-        self.norm = [
-            nn.BatchNorm2d(tea_channel, affine=False).to(device)
-            for tea_channel in channels_t
-        ]
-        self.norm1 = [
-            nn.BatchNorm2d(set_channel, affine=False).to(device)
-            for set_channel in channels_s
-        ]
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.align_module = nn.ModuleList(
+            [
+                nn.Conv2d(channel, tea_channel, kernel_size=1, stride=1, padding=0).to(device)
+                for channel, tea_channel in zip(channels_s, channels_t)
+            ]
+        )
+        self.norm = [nn.BatchNorm2d(tea_channel, affine=False).to(device) for tea_channel in channels_t]
+        self.norm1 = [nn.BatchNorm2d(set_channel, affine=False).to(device) for set_channel in channels_s]
 
-        if distiller == 'mgd':
+        if distiller == "mgd":
             self.feature_loss = MGDLoss(channels_s, channels_t)
-        elif distiller == 'cwd':
+        elif distiller == "cwd":
             self.feature_loss = CWDLoss(channels_s, channels_t)
         else:
             raise NotImplementedError
@@ -184,7 +186,7 @@ class FeatureLoss(nn.Module):
 
         for idx, (s, t) in enumerate(zip(y_s, y_t)):
             # change ---
-            if self.distiller == 'cwd':
+            if self.distiller == "cwd":
                 s = self.align_module[idx](s)
                 s = self.norm[idx](s)
             else:
@@ -199,7 +201,6 @@ class FeatureLoss(nn.Module):
 
 class Distillation_loss:
     def __init__(self, model_s, model_t, layers, distiller="CWDLoss"):  # model must be de-paralleled
-
         self.distiller = distiller
         # distillation layers
 
@@ -223,7 +224,6 @@ class Distillation_loss:
                             self.teacher_module_pairs.append(ml)
 
         for mname, ml in model_s.named_modules():
-
             if mname is not None:
                 name = mname.split(".")
                 if name[0] == "module":
@@ -262,7 +262,7 @@ class Distillation_loss:
         #     print(mo.shape,fo.shape)
         # quant_loss += self.D_loss_fn(mo, fo)
         quant_loss += self.D_loss_fn(y_t=self.teacher_outputs, y_s=self.origin_outputs)
-        if self.distiller != 'cwd':
+        if self.distiller != "cwd":
             quant_loss *= 0.3
         self.teacher_outputs.clear()
         self.origin_outputs.clear()
@@ -274,8 +274,7 @@ class Distillation_loss:
 
 
 class BaseTrainer:
-    """
-    A base class for creating trainers.
+    """A base class for creating trainers.
 
     This class provides the foundation for training YOLO models, handling the training loop, validation, checkpointing,
     and various training utilities. It supports both single-GPU and multi-GPU distributed training.
@@ -325,8 +324,7 @@ class BaseTrainer:
     """
 
     def __init__(self, cfg=DEFAULT_CFG, overrides=None, _callbacks=None):
-        """
-        Initialize the BaseTrainer class.
+        """Initialize the BaseTrainer class.
 
         Args:
             cfg (str, optional): Path to a configuration file.
@@ -660,23 +658,30 @@ class BaseTrainer:
 
                     # ----- distill change begin ----- #
                     if self.exist_dis:
-                        distill_weight = (((1 - math.cos(i * math.pi / len(self.train_loader))) / 2) * (
-                                    0.1 - 1) + 1) * 0.01
+                        distill_weight = (
+                            ((1 - math.cos(i * math.pi / len(self.train_loader))) / 2) * (0.1 - 1) + 1
+                        ) * 0.01
                         with torch.no_grad():
-                            pred = self.Distillation(batch['img'])
+                            self.Distillation(batch["img"])
 
                         self.d_loss = distillation_loss.get_loss()
                         self.d_loss *= distill_weight
                         if i == 0:
-                            print("distillation_loss : ", self.d_loss, '-----------------', "loss : ", self.loss,
-                                  '-----------------')
+                            print(
+                                "distillation_loss : ",
+                                self.d_loss,
+                                "-----------------",
+                                "loss : ",
+                                self.loss,
+                                "-----------------",
+                            )
                         self.loss += self.d_loss
                     # ----- distill change end ----- #
 
                 # Backward
                 self.scaler.scale(self.loss).backward()
 
-                # ----- add prune and distill pxy: step2_Constraint_train: l1 regulation ----- # 
+                # ----- add prune and distill pxy: step2_Constraint_train: l1 regulation ----- #
                 if i < 10 and RANK in {-1, 0}:
                     print("----- l1 shrink BN here, only for step 2, current open -----")
                 l1_lambda = 1e-2 * (1 - 0.9 * epoch / self.epochs)
@@ -685,8 +690,8 @@ class BaseTrainer:
                         m.weight.grad.data.add_(l1_lambda * torch.sign(m.weight.data))
                         m.bias.grad.data.add_(1e-2 * torch.sign(m.bias.data))
                 # if i < 10 and RANK in {-1, 0}:
-                #     print("----- l1 shrink BN here, only for step 2, current close -----")                
-                # ----- add end ----- 
+                #     print("----- l1 shrink BN here, only for step 2, current close -----")
+                # ----- add end -----
 
                 # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
                 if ni - last_opt_step >= self.accumulate:
@@ -804,7 +809,7 @@ class BaseTrainer:
                 total = torch.cuda.get_device_properties(self.device).total_memory
         return ((memory / total) if total > 0 else 0) if fraction else (memory / 2**30)
 
-    def _clear_memory(self, threshold: float = None):
+    def _clear_memory(self, threshold: float | None = None):
         """Clear accelerator memory by calling garbage collector and emptying cache."""
         if threshold:
             assert 0 <= threshold <= 1, "Threshold must be between 0 and 1."
@@ -868,8 +873,7 @@ class BaseTrainer:
         #    (self.wdir / "last_mosaic.pt").write_bytes(serialized_ckpt)  # save mosaic checkpoint
 
     def get_dataset(self):
-        """
-        Get train and validation datasets from data dictionary.
+        """Get train and validation datasets from data dictionary.
 
         Returns:
             (dict): A dictionary containing the training/validation/test dataset and category names.
@@ -895,8 +899,7 @@ class BaseTrainer:
         return data
 
     def setup_model(self):
-        """
-        Load, create, or download model for any task.
+        """Load, create, or download model for any task.
 
         Returns:
             (dict): Optional checkpoint to resume training from.
@@ -929,8 +932,7 @@ class BaseTrainer:
         return batch
 
     def validate(self):
-        """
-        Run validation on test set using self.validator.
+        """Run validation on test set using self.validator.
 
         Returns:
             metrics (dict): Dictionary of validation metrics.
@@ -959,10 +961,9 @@ class BaseTrainer:
         raise NotImplementedError("build_dataset function not implemented in trainer")
 
     def label_loss_items(self, loss_items=None, prefix="train"):
-        """
-        Return a loss dict with labelled training loss items tensor.
+        """Return a loss dict with labeled training loss items tensor.
 
-        Note:
+        Notes:
             This is not needed for classification but necessary for segmentation & detection
         """
         return {"loss": loss_items} if loss_items is not None else ["loss"]
@@ -992,10 +993,10 @@ class BaseTrainer:
         """Save training metrics to a CSV file."""
         keys, vals = list(metrics.keys()), list(metrics.values())
         n = len(metrics) + 2  # number of cols
-        s = "" if self.csv.exists() else (("%s," * n % tuple(["epoch", "time"] + keys)).rstrip(",") + "\n")  # header
+        s = "" if self.csv.exists() else (("%s," * n % tuple(["epoch", "time", *keys])).rstrip(",") + "\n")  # header
         t = time.time() - self.train_time_start
         with open(self.csv, "a", encoding="utf-8") as f:
-            f.write(s + ("%.6g," * n % tuple([self.epoch + 1, t] + vals)).rstrip(",") + "\n")
+            f.write(s + ("%.6g," * n % tuple([self.epoch + 1, t, *vals])).rstrip(",") + "\n")
 
     def plot_metrics(self):
         """Plot and display metrics visually."""
@@ -1090,18 +1091,16 @@ class BaseTrainer:
             self.train_loader.dataset.close_mosaic(hyp=copy(self.args))
 
     def build_optimizer(self, model, name="auto", lr=0.001, momentum=0.9, decay=1e-5, iterations=1e5):
-        """
-        Construct an optimizer for the given model.
+        """Construct an optimizer for the given model.
 
         Args:
             model (torch.nn.Module): The model for which to build an optimizer.
-            name (str, optional): The name of the optimizer to use. If 'auto', the optimizer is selected
-                based on the number of iterations.
+            name (str, optional): The name of the optimizer to use. If 'auto', the optimizer is selected based on the
+                number of iterations.
             lr (float, optional): The learning rate for the optimizer.
             momentum (float, optional): The momentum factor for the optimizer.
             decay (float, optional): The weight decay for the optimizer.
-            iterations (float, optional): The number of iterations, which determines the optimizer if
-                name is 'auto'.
+            iterations (float, optional): The number of iterations, which determines the optimizer if name is 'auto'.
 
         Returns:
             (torch.optim.Optimizer): The constructed optimizer.
