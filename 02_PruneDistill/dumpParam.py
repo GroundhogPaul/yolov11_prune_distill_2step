@@ -1,17 +1,15 @@
-import utilPruneDistill
-import torch
 import os
-from ultralytics import YOLO
 from copy import deepcopy
+
+from ultralytics import YOLO
+
 
 def GPUorCPU(model):
     pass
 
+
 def dump_param(sModelPath, sLayerName, sOutputPath):
-    '''
-    Dumps the parameters of the model to a file.
-    '''
-    
+    """Dumps the parameters of the model to a file."""
     assert os.path.exists(sModelPath), f"Model path {sModelPath} does not exist."
 
     # Load the model
@@ -23,7 +21,7 @@ def dump_param(sModelPath, sLayerName, sOutputPath):
     #     print("model has been transferred to GPU ")
     #     print("current device:", model.device)
     # else:
-    #     print("no availabe gpu")
+    #     print("no available gpu")
 
     for name, m in model.model.model.named_modules():
         print(name)
@@ -31,6 +29,7 @@ def dump_param(sModelPath, sLayerName, sOutputPath):
             m_cpu = deepcopy(m).cpu()
             print(type(m_cpu))
             # print(m_cpu.weight.shape)
+
 
 if __name__ == "__main__":
     sModelPath = "./runs/LapaTrain/176x1000epoch_MileStone/weights/best.pt"
