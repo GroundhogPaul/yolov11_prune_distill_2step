@@ -86,6 +86,7 @@ class MyCocoDetection(torchvision.datasets.CocoDetection):
             img, target = self._transforms(img, target)
         return img, target
 
+
 def get_coco_api_from_dataset(dataset):
     # FIXME: This is... awful?
     for _ in range(10):
