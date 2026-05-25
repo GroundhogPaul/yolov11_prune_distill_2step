@@ -18,7 +18,7 @@ close_mosaic: -1
 single_cls: true
 epochs: 1500
 batch: 128
-device: '0'
+device: "0"
 workers: 0
 patience: 0
 amp: False
