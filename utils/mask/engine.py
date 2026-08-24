@@ -4,6 +4,7 @@ import time
 
 import torch
 import torchvision.models.detection.mask_rcnn
+
 from . import _utils
 from .coco_eval import CocoEvaluator
 from .coco_utils import get_coco_api_from_dataset
@@ -25,7 +26,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq, sc
         )
 
     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
-        images = list(image.to(device) for image in images)
+        images = [image.to(device) for image in images]
         targets = [{k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in t.items()} for t in targets]
         with torch.cuda.amp.autocast(enabled=scaler is not None):
             loss_dict = model(images, targets)
@@ -87,7 +88,7 @@ def evaluate(model, data_loader, device):
     coco_evaluator = CocoEvaluator(coco, iou_types)
 
     for images, targets in metric_logger.log_every(data_loader, 100, header):
-        images = list(img.to(device) for img in images)
+        images = [img.to(device) for img in images]
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
