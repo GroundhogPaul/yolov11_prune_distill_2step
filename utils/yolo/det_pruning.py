@@ -1,21 +1,20 @@
-from ultralytics import YOLO
-import torch
-from ultralytics.nn.modules import Bottleneck, Conv, DWConv, C2f, SPPF, Detect, Pose, C3k2, C3k
-from torch.nn.modules.container import Sequential
 import os
 
+import torch
+from torch.nn.modules.container import Sequential
+
+from ultralytics import YOLO
+from ultralytics.nn.modules import SPPF, Bottleneck, C3k, C3k2, Conv, Detect, DWConv
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 
-class PRUNE():
+class PRUNE:
     def __init__(self) -> None:
         self.threshold = None
 
     def get_threshold(self, model, factor=0.8):
-        '''
-        collect all the BatchNorm2d weights and biases, and use the factor% small weight as threshold
-        '''
+        """Collect all the BatchNorm2d weights and biases, and use the factor% small weight as threshold."""
         ws = []
         bs = []
         for name, m in model.named_modules():
@@ -72,10 +71,11 @@ class PRUNE():
             conv1.conv.bias.data = conv1.conv.bias.data[keep_idxs]
 
         ## Regular Pruning
-        if not isinstance(conv2, list): # to compatible with list input
+        if not isinstance(conv2, list):  # to compatible with list input
             conv2 = [conv2]
         for item in conv2:
-            if item is None: continue
+            if item is None:
+                continue
             if isinstance(item, Conv):
                 conv = item.conv
             else:
@@ -100,13 +100,13 @@ class PRUNE():
         assert isinstance(m, C3k2), "m must be an instance of C3k2"
         conv1 = m.cv1
         if isinstance(m.m[0], Bottleneck):
-            assert len(m.m) == 1 # only one bottleneck is supported, or would be too complicated
+            assert len(m.m) == 1  # only one bottleneck is supported, or would be too complicated
             bottneck = m.m[0]
         elif isinstance(m.m[0], C3k):
             print("I won't prune you: C3k")
             return
         else:
-            raise TypeError(f"Unsupported type {type(m.m[0])} in C3k2") 
+            raise TypeError(f"Unsupported type {type(m.m[0])} in C3k2")
         conv2a = m.cv2
 
         # ----- Prune conv1 output ----- #
@@ -124,8 +124,8 @@ class PRUNE():
         print("  nOld = ", nOld, ", nNew = ", nNew)
         if nNew + 1 >= nOld:  # 如果剪枝后卷积核数量没有减少，则不进行剪枝
             return
-        
-        # --- Prune conv1 output --- 
+
+        # --- Prune conv1 output ---
         conv1.bn.weight.data = gamma[keep_idxs]
         conv1.bn.bias.data = beta[keep_idxs]
         conv1.bn.running_var.data = conv1.bn.running_var.data[keep_idxs]
@@ -142,7 +142,7 @@ class PRUNE():
 
         # ----- Prune BottleNeck input and output ----- #
         # --- prune bottleneck 的cv1的输入
-        keep_idxs_2ndHalf = keep_idxs[keep_idxs >= (nOld//2)] - (nOld//2)
+        keep_idxs_2ndHalf = keep_idxs[keep_idxs >= (nOld // 2)] - (nOld // 2)
         btcv1 = bottneck.cv1
         btcv1.conv.in_channels = len(keep_idxs_2ndHalf)
         btcv1.conv.weight.data = btcv1.conv.weight.data[:, keep_idxs_2ndHalf]
@@ -157,14 +157,12 @@ class PRUNE():
         btcv2.conv.out_channels = len(keep_idxs_2ndHalf)
         if btcv2.conv.bias is not None:
             btcv2.conv.bias.data = btcv2.conv.bias.data[keep_idxs_2ndHalf]
-        
+
         # ----- Prune conv2b input ----- #
-        keep_idxs_out = torch.cat((keep_idxs, keep_idxs_2ndHalf + nOld)) # output of conv1 + output of bottleneck
+        keep_idxs_out = torch.cat((keep_idxs, keep_idxs_2ndHalf + nOld))  # output of conv1 + output of bottleneck
         conv2a.conv.weight.data = conv2a.conv.weight.data[:, keep_idxs_out]
         # print(conv2a.conv.in_channels, len(keep_idxs_out))
         conv2a.conv.in_channels = len(keep_idxs_out)
-
-        pass
 
     def prune(self, m1, m2):
         if isinstance(m1, C3k2):  # C3k2 as a top conv
@@ -176,10 +174,11 @@ class PRUNE():
         if not isinstance(m2, list):  # m2 is just one module
             m2 = [m2]
         for i, item in enumerate(m2):
-            if isinstance(item, C3k2) or isinstance(item, SPPF):
+            if isinstance(item, (C3k2, SPPF)):
                 m2[i] = item.cv1
 
         self.prune_conv(m1, m2)
+
 
 def do_pruning(modelpath, savepath, pruning_rate=0.8):
     assert os.path.exists(modelpath), f"Model path {modelpath} does not exist."
@@ -193,7 +192,7 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
     ### 1. 剪枝C3k2中的Bottleneck
     for name, m in yolo.model.named_modules():
         if isinstance(m, Bottleneck):
-            print("剪枝C3k2中的Bottleneck的隐藏层: ", name, end=' ')
+            print("剪枝C3k2中的Bottleneck的隐藏层: ", name, end=" ")
             pruning.prune_conv(m.cv1, m.cv2)
 
     ## 1.5 剪枝C3k2的conv1
@@ -204,8 +203,8 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
 
     ### 2. 指定剪枝不同模块之间的卷积核
     seq = yolo.model.model
-    for i in [3,5]: # TODO prune 6
-        print(f"剪枝模块{i}和模块{i+1}的连接: ", end=' ')
+    for i in [3, 5]:  # TODO prune 6
+        print(f"剪枝模块{i}和模块{i + 1}的连接: ", end=" ")
         pruning.prune(seq[i], seq[i + 1])
 
     ### 3. 对检测头进行剪枝
@@ -217,7 +216,9 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
     # proto = detect.proto
     last_inputs = [seq[10], seq[13]]
     colasts = [seq[11], None]
-    for idx, (last_input, colast, cv2, cv3, cv4) in enumerate(zip(last_inputs, colasts, detect.cv2, detect.cv3, detect.cv4)):
+    for idx, (last_input, colast, cv2, cv3, cv4) in enumerate(
+        zip(last_inputs, colasts, detect.cv2, detect.cv3, detect.cv4)
+    ):
         print(f"剪枝输出模块anchor {idx}")
         pruning.prune(last_input, [colast, cv2[0], cv3[0], cv4[0]])
         pruning.prune(cv2[0], cv2[1])
@@ -227,7 +228,6 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
 
         pruning.prune(cv4[0], cv4[1])
         pruning.prune(cv4[1], cv4[2])
-        pass
 
     ### 4. 模型梯度设置与保存
     for name, p in yolo.model.named_parameters():
@@ -235,7 +235,6 @@ def do_pruning(modelpath, savepath, pruning_rate=0.8):
 
     # yolo.val(data='data.yaml', batch=2, device=0, workers=0)
     torch.save(yolo.ckpt, savepath)
-
 
 
 if __name__ == "__main__":
