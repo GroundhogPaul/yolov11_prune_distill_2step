@@ -3,9 +3,10 @@ import os
 import torch
 import torch.utils.data
 import torchvision
-from . import transforms as T
 from pycocotools import mask as coco_mask
 from pycocotools.coco import COCO
+
+from . import transforms as T
 
 
 def convert_coco_poly_to_mask(segmentations, height, width):
@@ -102,9 +103,7 @@ def _coco_remove_images_without_annotations(dataset, cat_list=None):
             return True
         # for keypoint detection tasks, only consider valid images those
         # containing at least min_keypoints_per_image
-        if _count_visible_keypoints(anno) >= min_keypoints_per_image:
-            return True
-        return False
+        return _count_visible_keypoints(anno) >= min_keypoints_per_image
 
     ids = []
     for ds_idx, img_id in enumerate(dataset.ids):
@@ -191,7 +190,7 @@ class CocoDetection(torchvision.datasets.CocoDetection):
     def __getitem__(self, idx):
         img, target = super().__getitem__(idx)
         image_id = self.ids[idx]
-        target = dict(image_id=image_id, annotations=target)
+        target = {"image_id": image_id, "annotations": target}
         if self._transforms is not None:
             img, target = self._transforms(img, target)
         return img, target
