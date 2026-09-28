@@ -2,9 +2,9 @@ import time
 
 import torch
 import torchvision.models.detection.mask_rcnn
+from coco_eval import CocoEvaluator
 
 from . import utils
-from coco_eval import CocoEvaluator
 from .coco_utils import get_coco_api_from_dataset
 
 
@@ -35,7 +35,7 @@ def evaluate(model, data_loader, device):
     coco_evaluator = CocoEvaluator(coco, iou_types)
 
     for images, targets in metric_logger.log_every(data_loader, 100, header):
-        images = list(img.to(device) for img in images)
+        images = [img.to(device) for img in images]
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
