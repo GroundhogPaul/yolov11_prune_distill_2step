@@ -81,10 +81,11 @@ class MyCocoDetection(torchvision.datasets.CocoDetection):
     def __getitem__(self, idx):
         img, target = super().__getitem__(idx)
         image_id = self.ids[idx]
-        target = dict(image_id=image_id, annotations=target)
+        target = {"image_id": image_id, "annotations": target}
         if self._transforms is not None:
             img, target = self._transforms(img, target)
         return img, target
+
 
 def get_coco_api_from_dataset(dataset):
     # FIXME: This is... awful?
