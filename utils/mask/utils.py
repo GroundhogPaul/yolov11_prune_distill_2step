@@ -1,52 +1,50 @@
+from __future__ import annotations
+
 import collections
 import math
 import pathlib
 import warnings
 from itertools import repeat
 from types import FunctionType
-from typing import Any, BinaryIO, List, Optional, Tuple, Union
+from typing import Any, BinaryIO
 
 import numpy as np
 import torch
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
-
 __all__ = [
+    "draw_bounding_boxes",
+    "draw_keypoints",
+    "draw_segmentation_masks",
+    "flow_to_image",
     "make_grid",
     "save_image",
-    "draw_bounding_boxes",
-    "draw_segmentation_masks",
-    "draw_keypoints",
-    "flow_to_image",
 ]
 
 
 @torch.no_grad()
 def make_grid(
-    tensor: Union[torch.Tensor, List[torch.Tensor]],
+    tensor: torch.Tensor | list[torch.Tensor],
     nrow: int = 8,
     padding: int = 2,
     normalize: bool = False,
-    value_range: Optional[Tuple[int, int]] = None,
+    value_range: tuple[int, int] | None = None,
     scale_each: bool = False,
     pad_value: float = 0.0,
 ) -> torch.Tensor:
-    """
-    Make a grid of images.
+    """Make a grid of images.
 
     Args:
-        tensor (Tensor or list): 4D mini-batch Tensor of shape (B x C x H x W)
-            or a list of images all of the same size.
+        tensor (Tensor or list): 4D mini-batch Tensor of shape (B x C x H x W) or a list of images all of the same size.
         nrow (int, optional): Number of images displayed in each row of the grid.
-            The final grid size is ``(B / nrow, nrow)``. Default: ``8``.
+        The final grid size is ``(B / nrow, nrow)``. Default: ``8``.
         padding (int, optional): amount of padding. Default: ``2``.
         normalize (bool, optional): If True, shift the image to the range (0, 1),
             by the min and max values specified by ``value_range``. Default: ``False``.
-        value_range (tuple, optional): tuple (min, max) where min and max are numbers,
-            then these numbers are used to normalize the image. By default, min and max
-            are computed from the tensor.
+        value_range (tuple, optional): tuple (min, max) where min and max are numbers, then these numbers are used to
+            normalize the image. By default, min and max are computed from the tensor.
         scale_each (bool, optional): If ``True``, scale each image in the batch of
-            images separately rather than the (min, max) over all images. Default: ``False``.
+        images separately rather than the (min, max) over all images. Default: ``False``.
         pad_value (float, optional): Value for the padded pixels. Default: ``0``.
 
     Returns:
@@ -105,7 +103,7 @@ def make_grid(
     # make the mini-batch of images into a grid
     nmaps = tensor.size(0)
     xmaps = min(nrow, nmaps)
-    ymaps = int(math.ceil(float(nmaps) / xmaps))
+    ymaps = math.ceil(float(nmaps) / xmaps)
     height, width = int(tensor.size(2) + padding), int(tensor.size(3) + padding)
     num_channels = tensor.size(1)
     grid = tensor.new_full((num_channels, height * ymaps + padding, width * xmaps + padding), pad_value)
@@ -125,23 +123,21 @@ def make_grid(
 
 @torch.no_grad()
 def save_image(
-    tensor: Union[torch.Tensor, List[torch.Tensor]],
-    fp: Union[str, pathlib.Path, BinaryIO],
-    format: Optional[str] = None,
+    tensor: torch.Tensor | list[torch.Tensor],
+    fp: str | pathlib.Path | BinaryIO,
+    format: str | None = None,
     **kwargs,
 ) -> None:
-    """
-    Save a given Tensor into an image file.
+    """Save a given Tensor into an image file.
 
     Args:
-        tensor (Tensor or list): Image to be saved. If given a mini-batch tensor,
-            saves the tensor as a grid of images by calling ``make_grid``.
+        tensor (Tensor or list): Image to be saved. If given a mini-batch tensor, saves the tensor as a grid of images
+            by calling ``make_grid``.
         fp (string or file object): A filename or a file object
-        format(Optional):  If omitted, the format to use is determined from the filename extension.
-            If a file object was used instead of a filename, this parameter should always be used.
+        format(Optional): If omitted, the format to use is determined from the filename extension. If a file object was
+            used instead of a filename, this parameter should always be used.
         **kwargs: Other arguments are documented in ``make_grid``.
     """
-
     if not torch.jit.is_scripting() and not torch.jit.is_tracing():
         _log_api_usage_once(save_image)
     grid = make_grid(tensor, **kwargs)
@@ -155,18 +151,15 @@ def save_image(
 def draw_bounding_boxes(
     image: torch.Tensor,
     boxes: torch.Tensor,
-    labels: Optional[List[str]] = None,
-    colors: Optional[Union[List[Union[str, Tuple[int, int, int]]], str, Tuple[int, int, int]]] = None,
-    fill: Optional[bool] = False,
+    labels: list[str] | None = None,
+    colors: list[str | tuple[int, int, int]] | str | tuple[int, int, int] | None = None,
+    fill: bool | None = False,
     width: int = 1,
-    font: Optional[str] = None,
-    font_size: Optional[int] = None,
+    font: str | None = None,
+    font_size: int | None = None,
 ) -> torch.Tensor:
-
-    """
-    Draws bounding boxes on given RGB image.
-    The image values should be uint8 in [0, 255] or float in [0, 1].
-    If fill is True, Resulting Tensor should be saved as PNG image.
+    """Draws bounding boxes on given RGB image. The image values should be uint8 in [0, 255] or float in [0, 1]. If fill
+    is True, Resulting Tensor should be saved as PNG image.
 
     Args:
         image (Tensor): Tensor of shape (C, H, W) and dtype uint8 or float.
@@ -174,10 +167,9 @@ def draw_bounding_boxes(
             the boxes are absolute coordinates with respect to the image. In other words: `0 <= xmin < xmax < W` and
             `0 <= ymin < ymax < H`.
         labels (List[str]): List containing the labels of bounding boxes.
-        colors (color or list of colors, optional): List containing the colors
-            of the boxes or single color for all boxes. The color can be represented as
-            PIL strings e.g. "red" or "#FF00FF", or as RGB tuples e.g. ``(240, 10, 157)``.
-            By default, random colors are generated for boxes.
+        colors (color or list of colors, optional): List containing the colors of the boxes or single color for all
+            boxes. The color can be represented as PIL strings e.g. "red" or "#FF00FF", or as RGB tuples e.g. ``(240,
+            10, 157)``. By default, random colors are generated for boxes.
         fill (bool): If `True` fills the bounding box with specified color.
         width (int): Width of bounding box.
         font (str): A filename containing a TrueType font. If the file is not found in this filename, the loader may
@@ -188,7 +180,7 @@ def draw_bounding_boxes(
     Returns:
         img (Tensor[C, H, W]): Image Tensor of dtype uint8 with bounding boxes plotted.
     """
-    import torchvision.transforms.v2.functional as F  # noqa
+    import torchvision.transforms.v2.functional as F
 
     if not torch.jit.is_scripting() and not torch.jit.is_tracing():
         _log_api_usage_once(draw_bounding_boxes)
@@ -212,7 +204,7 @@ def draw_bounding_boxes(
         return image
 
     if labels is None:
-        labels: Union[List[str], List[None]] = [None] * num_boxes  # type: ignore[no-redef]
+        labels: list[str] | list[None] = [None] * num_boxes  # type: ignore[no-redef]
     elif len(labels) != num_boxes:
         raise ValueError(
             f"Number of boxes ({num_boxes}) and labels ({len(labels)}) mismatch. Please specify labels for each box."
@@ -245,7 +237,7 @@ def draw_bounding_boxes(
 
     for bbox, color, label in zip(img_boxes, colors, labels):  # type: ignore[arg-type]
         if fill:
-            fill_color = color + (100,)
+            fill_color = (*color, 100)
             draw.rectangle(bbox, width=width, outline=color, fill=fill_color)
         else:
             draw.rectangle(bbox, width=width, outline=color)
@@ -265,27 +257,22 @@ def draw_segmentation_masks(
     image: torch.Tensor,
     masks: torch.Tensor,
     alpha: float = 0.8,
-    colors: Optional[Union[List[Union[str, Tuple[int, int, int]]], str, Tuple[int, int, int]]] = None,
+    colors: list[str | tuple[int, int, int]] | str | tuple[int, int, int] | None = None,
 ) -> torch.Tensor:
-
-    """
-    Draws segmentation masks on given RGB image.
-    The image values should be uint8 in [0, 255] or float in [0, 1].
+    """Draws segmentation masks on given RGB image. The image values should be uint8 in [0, 255] or float in [0, 1].
 
     Args:
         image (Tensor): Tensor of shape (3, H, W) and dtype uint8 or float.
         masks (Tensor): Tensor of shape (num_masks, H, W) or (H, W) and dtype bool.
-        alpha (float): Float number between 0 and 1 denoting the transparency of the masks.
-            0 means full transparency, 1 means no transparency.
-        colors (color or list of colors, optional): List containing the colors
-            of the masks or single color for all masks. The color can be represented as
-            PIL strings e.g. "red" or "#FF00FF", or as RGB tuples e.g. ``(240, 10, 157)``.
-            By default, random colors are generated for each mask.
+        alpha (float): Float number between 0 and 1 denoting the transparency of the masks. 0 means full transparency, 1
+            means no transparency.
+        colors (color or list of colors, optional): List containing the colors of the masks or single color for all
+            masks. The color can be represented as PIL strings e.g. "red" or "#FF00FF", or as RGB tuples e.g. ``(240,
+            10, 157)``. By default, random colors are generated for each mask.
 
     Returns:
         img (Tensor[C, H, W]): Image Tensor, with segmentation masks drawn on top.
     """
-
     if not torch.jit.is_scripting() and not torch.jit.is_tracing():
         _log_api_usage_once(draw_segmentation_masks)
     if not isinstance(image, torch.Tensor):
@@ -334,17 +321,14 @@ def draw_segmentation_masks(
 def draw_keypoints(
     image: torch.Tensor,
     keypoints: torch.Tensor,
-    connectivity: Optional[List[Tuple[int, int]]] = None,
-    colors: Optional[Union[str, Tuple[int, int, int]]] = None,
+    connectivity: list[tuple[int, int]] | None = None,
+    colors: str | tuple[int, int, int] | None = None,
     radius: int = 2,
     width: int = 3,
-    visibility: Optional[torch.Tensor] = None,
+    visibility: torch.Tensor | None = None,
 ) -> torch.Tensor:
-
-    """
-    Draws Keypoints on given RGB image.
-    The image values should be uint8 in [0, 255] or float in [0, 1].
-    Keypoints can be drawn for multiple instances at a time.
+    """Draws Keypoints on given RGB image. The image values should be uint8 in [0, 255] or float in [0, 1]. Keypoints
+    can be drawn for multiple instances at a time.
 
     This method allows that keypoints and their connectivity are drawn based on the visibility of this keypoint.
 
@@ -352,27 +336,22 @@ def draw_keypoints(
         image (Tensor): Tensor of shape (3, H, W) and dtype uint8 or float.
         keypoints (Tensor): Tensor of shape (num_instances, K, 2) the K keypoint locations for each of the N instances,
             in the format [x, y].
-        connectivity (List[Tuple[int, int]]]): A List of tuple where each tuple contains a pair of keypoints
-            to be connected.
-            If at least one of the two connected keypoints has a ``visibility`` of False,
-            this specific connection is not drawn.
-            Exclusions due to invisibility are computed per-instance.
-        colors (str, Tuple): The color can be represented as
-            PIL strings e.g. "red" or "#FF00FF", or as RGB tuples e.g. ``(240, 10, 157)``.
+        connectivity (List[Tuple[int, int]]]): A List of tuple where each tuple contains a pair of keypoints to be
+            connected. If at least one of the two connected keypoints has a ``visibility`` of False, this specific
+            connection is not drawn. Exclusions due to invisibility are computed per-instance.
+        colors (str, Tuple): The color can be represented as PIL strings e.g. "red" or "#FF00FF", or as RGB tuples e.g.
+            ``(240, 10, 157)``.
         radius (int): Integer denoting radius of keypoint.
         width (int): Integer denoting width of line connecting keypoints.
-        visibility (Tensor): Tensor of shape (num_instances, K) specifying the visibility of the K
-            keypoints for each of the N instances.
-            True means that the respective keypoint is visible and should be drawn.
-            False means invisible, so neither the point nor possible connections containing it are drawn.
-            The input tensor will be cast to bool.
-            Default ``None`` means that all the keypoints are visible.
+        visibility (Tensor): Tensor of shape (num_instances, K) specifying the visibility of the K keypoints for each of
+            the N instances. True means that the respective keypoint is visible and should be drawn. False means
+            invisible, so neither the point nor possible connections containing it are drawn. The input tensor will be
+            cast to bool. Default ``None`` means that all the keypoints are visible.
             For more details, see :ref:`draw_keypoints_with_visibility`.
 
     Returns:
         img (Tensor[C, H, W]): Image Tensor with keypoints drawn.
     """
-
     if not torch.jit.is_scripting() and not torch.jit.is_tracing():
         _log_api_usage_once(draw_keypoints)
     # validate image
@@ -406,7 +385,7 @@ def draw_keypoints(
 
     original_dtype = image.dtype
     if original_dtype.is_floating_point:
-        from torchvision.transforms.v2.functional import to_dtype  # noqa
+        from torchvision.transforms.v2.functional import to_dtype
 
         image = to_dtype(image, dtype=torch.uint8, scale=True)
 
@@ -450,18 +429,15 @@ def draw_keypoints(
 # Flow visualization code adapted from https://github.com/tomrunia/OpticalFlow_Visualization
 @torch.no_grad()
 def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
-
-    """
-    Converts a flow to an RGB image.
+    """Converts a flow to an RGB image.
 
     Args:
         flow (Tensor): Flow of shape (N, 2, H, W) or (2, H, W) and dtype torch.float.
 
     Returns:
-        img (Tensor): Image Tensor of dtype uint8 where each color corresponds
-            to a given flow direction. Shape is (N, 3, H, W) or (3, H, W) depending on the input.
+        img (Tensor): Image Tensor of dtype uint8 where each color corresponds to a given flow direction. Shape is (N,
+            3, H, W) or (3, H, W) depending on the input.
     """
-
     if flow.dtype != torch.float:
         raise ValueError(f"Flow should be of dtype torch.float, got {flow.dtype}.")
 
@@ -484,16 +460,14 @@ def flow_to_image(flow: torch.Tensor) -> torch.Tensor:
 
 @torch.no_grad()
 def _normalized_flow_to_image(normalized_flow: torch.Tensor) -> torch.Tensor:
-
-    """
-    Converts a batch of normalized flow to an RGB image.
+    """Converts a batch of normalized flow to an RGB image.
 
     Args:
         normalized_flow (torch.Tensor): Normalized flow tensor of shape (N, 2, H, W)
-    Returns:
-       img (Tensor(N, 3, H, W)): Flow visualization image of dtype uint8.
-    """
 
+    Returns:
+        img (Tensor(N, 3, H, W)): Flow visualization image of dtype uint8.
+    """
     N, _, H, W = normalized_flow.shape
     device = normalized_flow.device
     flow_image = torch.zeros((N, 3, H, W), dtype=torch.uint8, device=device)
@@ -518,15 +492,12 @@ def _normalized_flow_to_image(normalized_flow: torch.Tensor) -> torch.Tensor:
 
 
 def _make_colorwheel() -> torch.Tensor:
-    """
-    Generates a color wheel for optical flow visualization as presented in:
-    Baker et al. "A Database and Evaluation Methodology for Optical Flow" (ICCV, 2007)
-    URL: http://vision.middlebury.edu/flow/flowEval-iccv07.pdf.
+    """Generates a color wheel for optical flow visualization as presented in: Baker et al. "A Database and Evaluation
+    Methodology for Optical Flow" (ICCV, 2007) URL: http://vision.middlebury.edu/flow/flowEval-iccv07.pdf.
 
     Returns:
         colorwheel (Tensor[55, 3]): Colorwheel Tensor.
     """
-
     RY = 15
     YG = 6
     GC = 4
@@ -570,13 +541,12 @@ def _generate_color_palette(num_objects: int):
 
 
 def _parse_colors(
-    colors: Union[None, str, Tuple[int, int, int], List[Union[str, Tuple[int, int, int]]]],
+    colors: str | tuple[int, int, int] | list[str | tuple[int, int, int]] | None,
     *,
     num_objects: int,
     dtype: torch.dtype = torch.uint8,
-) -> List[Tuple[int, int, int]]:
-    """
-    Parses a specification of colors for a set of objects.
+) -> list[tuple[int, int, int]]:
+    """Parses a specification of colors for a set of objects.
 
     Args:
         colors: A specification of colors for the objects. This can be one of the following:
@@ -586,15 +556,14 @@ def _parse_colors(
 
             If `colors` is a tuple, it should be a 3-tuple specifying the RGB values of the color.
             If `colors` is a list, it should have at least as many elements as the number of objects to color.
-
         num_objects (int): The number of objects to color.
 
     Returns:
         A list of 3-tuples, specifying the RGB values of the colors.
 
     Raises:
-        ValueError: If the number of colors in the list is less than the number of objects to color.
-                    If `colors` is not a list, tuple, string or None.
+        ValueError: If the number of colors in the list is less than the number of objects to color. If `colors` is not
+            a list, tuple, string or None.
     """
     if colors is None:
         colors = _generate_color_palette(num_objects)
@@ -617,19 +586,15 @@ def _parse_colors(
 
 
 def _log_api_usage_once(obj: Any) -> None:
-
-    """
-    Logs API usage(module and name) within an organization.
-    In a large ecosystem, it's often useful to track the PyTorch and
-    TorchVision APIs usage. This API provides the similar functionality to the
-    logging module in the Python stdlib. It can be used for debugging purpose
-    to log which methods are used and by default it is inactive, unless the user
-    manually subscribes a logger via the `SetAPIUsageLogger method <https://github.com/pytorch/pytorch/blob/eb3b9fe719b21fae13c7a7cf3253f970290a573e/c10/util/Logging.cpp#L114>`_.
-    Please note it is triggered only once for the same API call within a process.
-    It does not collect any data from open-source users since it is no-op by default.
-    For more information, please refer to
-    * PyTorch note: https://pytorch.org/docs/stable/notes/large_scale_deployments.html#api-usage-logging;
-    * Logging policy: https://github.com/pytorch/vision/issues/5052;
+    """Logs API usage(module and name) within an organization. In a large ecosystem, it's often useful to track the
+    PyTorch and TorchVision APIs usage. This API provides the similar functionality to the logging module in the
+    Python stdlib. It can be used for debugging purpose to log which methods are used and by default it is inactive,
+    unless the user manually subscribes a logger via the `SetAPIUsageLogger method
+    <https://github.com/pytorch/pytorch/blob/eb3b9fe719b21fae13c7a7cf3253f970290a573e/c10/util/Logging.cpp#L114>`_.
+    Please note it is triggered only once for the same API call within a process. It does not collect any data from
+    open-source users since it is no-op by default. For more information, please refer to * PyTorch note:
+    https://pytorch.org/docs/stable/notes/large_scale_deployments.html#api-usage-logging; * Logging
+    policy: https://github.com/pytorch/vision/issues/5052;.
 
     Args:
         obj (class instance or method): an object to extract info from.
@@ -643,11 +608,10 @@ def _log_api_usage_once(obj: Any) -> None:
     torch._C._log_api_usage_once(f"{module}.{name}")
 
 
-def _make_ntuple(x: Any, n: int) -> Tuple[Any, ...]:
-    """
-    Make n-tuple from input x. If x is an iterable, then we just convert it to tuple.
-    Otherwise, we will make a tuple of length n, all with value of x.
-    reference: https://github.com/pytorch/pytorch/blob/master/torch/nn/modules/utils.py#L8
+def _make_ntuple(x: Any, n: int) -> tuple[Any, ...]:
+    """Make n-tuple from input x. If x is an iterable, then we just convert it to tuple. Otherwise, we will make a tuple
+    of length n, all with value of x.
+    reference: https://github.com/pytorch/pytorch/blob/master/torch/nn/modules/utils.py#L8.
 
     Args:
         x (Any): input value
@@ -657,6 +621,6 @@ def _make_ntuple(x: Any, n: int) -> Tuple[Any, ...]:
         return tuple(x)
     return tuple(repeat(x, n))
 
+
 def collate_fn(batch):
     return tuple(zip(*batch))
-
