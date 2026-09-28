@@ -1,13 +1,11 @@
 import torch
+
 # from torchvision.models.detection.anchor_utils import AnchorGenerator
 
 
 class Config:
-
     def print(self):
-        """
-        打印当前配置参数
-        """
+        """打印当前配置参数."""
         print("now Config is:")
         for key, value in self.__dict__.items():
             print(f"{key}: {value}")
@@ -22,12 +20,12 @@ class Config:
         self.ASPECT_RATIO_GROUP_FACTOR = 0
         self.BATCH_SIZE = 2
         # 训练的数据集
-        self.TRAIN_IMG_FOLDER = 'datasets/images/train'
-        self.TRAIN_ANN_FILE = 'datasets/COCO/train.json'
+        self.TRAIN_IMG_FOLDER = "datasets/images/train"
+        self.TRAIN_ANN_FILE = "datasets/COCO/train.json"
 
         # 验证的数据集
-        self.VAL_IMG_FOLDER = 'datasets/images/val'
-        self.VAL_ANN_FILE = 'datasets/COCO/val.json'
+        self.VAL_IMG_FOLDER = "datasets/images/val"
+        self.VAL_ANN_FILE = "datasets/COCO/val.json"
         # 定义设备
         self.DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # 优化器参数
@@ -46,7 +44,7 @@ class Config:
         # rpn的anchor设定
         anchor_sizes = ((32, 64), (64, 128), (128, 256), (256, 512), (512, 1024))
         # anchor_sizes = ((32, 64), (64, 128))
-        aspect_ratios = ((0.25, 0.5, 1.0, 2.0, 4.0),) * len(anchor_sizes)
+        ((0.25, 0.5, 1.0, 2.0, 4.0),) * len(anchor_sizes)
         # self.RPN_ANCHOR_GENERATOR = AnchorGenerator(anchor_sizes, aspect_ratios)
         self.RPN_ANCHOR_GENERATOR = None
         # 注意,一旦使用RESUME_PTH,则此类的所有配置,注意是所有,都将会被所指的PTH内的config所覆盖
