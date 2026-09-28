@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import numbers
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Any, Literal, Sequence
 
 import numpy as np
 import torch
@@ -20,7 +22,7 @@ def _is_pil_image(img: Any) -> bool:
 
 
 @torch.jit.unused
-def get_dimensions(img: Any) -> List[int]:
+def get_dimensions(img: Any) -> list[int]:
     if _is_pil_image(img):
         if hasattr(img, "getbands"):
             channels = len(img.getbands())
@@ -32,7 +34,7 @@ def get_dimensions(img: Any) -> List[int]:
 
 
 @torch.jit.unused
-def get_image_size(img: Any) -> List[int]:
+def get_image_size(img: Any) -> list[int]:
     if _is_pil_image(img):
         return list(img.size)
     raise TypeError(f"Unexpected type {type(img)}")
@@ -143,8 +145,8 @@ def adjust_gamma(
 @torch.jit.unused
 def pad(
     img: Image.Image,
-    padding: Union[int, List[int], Tuple[int, ...]],
-    fill: Optional[Union[float, List[float], Tuple[float, ...]]] = 0,
+    padding: int | list[int] | tuple[int, ...],
+    fill: float | list[float] | tuple[float, ...] | None = 0,
     padding_mode: Literal["constant", "edge", "reflect", "symmetric"] = "constant",
 ) -> Image.Image:
 
@@ -238,7 +240,7 @@ def crop(
 @torch.jit.unused
 def resize(
     img: Image.Image,
-    size: Union[List[int], int],
+    size: list[int] | int,
     interpolation: int = Image.BILINEAR,
 ) -> Image.Image:
 
@@ -252,10 +254,10 @@ def resize(
 
 @torch.jit.unused
 def _parse_fill(
-    fill: Optional[Union[float, List[float], Tuple[float, ...]]],
+    fill: float | list[float] | tuple[float, ...] | None,
     img: Image.Image,
     name: str = "fillcolor",
-) -> Dict[str, Optional[Union[float, List[float], Tuple[float, ...]]]]:
+) -> dict[str, float | list[float] | tuple[float, ...] | None]:
 
     # Process fill color for affine transforms
     num_channels = get_image_num_channels(img)
@@ -284,9 +286,9 @@ def _parse_fill(
 @torch.jit.unused
 def affine(
     img: Image.Image,
-    matrix: List[float],
+    matrix: list[float],
     interpolation: int = Image.NEAREST,
-    fill: Optional[Union[int, float, Sequence[int], Sequence[float]]] = None,
+    fill: float | Sequence[int] | Sequence[float] | None = None,
 ) -> Image.Image:
 
     if not _is_pil_image(img):
@@ -303,8 +305,8 @@ def rotate(
     angle: float,
     interpolation: int = Image.NEAREST,
     expand: bool = False,
-    center: Optional[Tuple[int, int]] = None,
-    fill: Optional[Union[int, float, Sequence[int], Sequence[float]]] = None,
+    center: tuple[int, int] | None = None,
+    fill: float | Sequence[int] | Sequence[float] | None = None,
 ) -> Image.Image:
 
     if not _is_pil_image(img):
@@ -317,9 +319,9 @@ def rotate(
 @torch.jit.unused
 def perspective(
     img: Image.Image,
-    perspective_coeffs: List[float],
+    perspective_coeffs: list[float],
     interpolation: int = Image.BICUBIC,
-    fill: Optional[Union[int, float, Sequence[int], Sequence[float]]] = None,
+    fill: float | Sequence[int] | Sequence[float] | None = None,
 ) -> Image.Image:
 
     if not _is_pil_image(img):

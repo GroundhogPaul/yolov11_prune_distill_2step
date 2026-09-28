@@ -12,9 +12,9 @@ def time_synchronized():
     torch.cuda.synchronize() if torch.cuda.is_available() else None
     return time.time()
 
+
 class SmoothedValue:
-    """Track a series of values and provide access to smoothed values over a
-    window or the global series average.
+    """Track a series of values and provide access to smoothed values over a window or the global series average.
     """
 
     def __init__(self, window_size=20, fmt=None):
@@ -31,9 +31,7 @@ class SmoothedValue:
         self.total += value * n
 
     def synchronize_between_processes(self):
-        """
-        Warning: does not synchronize the deque!
-        """
+        """Warning: does not synchronize the deque!"""
         if not is_dist_avail_and_initialized():
             return
         t = torch.tensor([self.count, self.total], dtype=torch.float64, device="cuda")
@@ -72,12 +70,13 @@ class SmoothedValue:
 
 
 def all_gather(data):
-    """
-    Run all_gather on arbitrary picklable data (not necessarily tensors)
+    """Run all_gather on arbitrary picklable data (not necessarily tensors).
+
     Args:
         data: any picklable object
+
     Returns:
-        list[data]: list of data gathered from each rank
+        list[data]: list of data gathered from each rank.
     """
     world_size = get_world_size()
     if world_size == 1:
@@ -91,10 +90,8 @@ def reduce_dict(input_dict, average=True):
     """
     Args:
         input_dict (dict): all the values will be reduced
-        average (bool): whether to do average or sum
-    Reduce the values in the dictionary from all processes so that all processes
-    have the averaged results. Returns a dict with the same fields as
-    input_dict, after reduction.
+        average (bool): whether to do average or sum Reduce the values in the dictionary from all processes so that all
+            processes have the averaged results. Returns a dict with the same fields as input_dict, after reduction.
     """
     world_size = get_world_size()
     if world_size < 2:
@@ -136,7 +133,7 @@ class MetricLogger:
     def __str__(self):
         loss_str = []
         for name, meter in self.meters.items():
-            loss_str.append(f"{name}: {str(meter)}")
+            loss_str.append(f"{name}: {meter!s}")
         return self.delimiter.join(loss_str)
 
     def synchronize_between_processes(self):
@@ -217,9 +214,7 @@ def mkdir(path):
 
 
 def setup_for_distributed(is_master):
-    """
-    This function disables printing when not in master process
-    """
+    """This function disables printing when not in master process."""
     import builtins as __builtin__
 
     builtin_print = __builtin__.print
@@ -235,9 +230,7 @@ def setup_for_distributed(is_master):
 def is_dist_avail_and_initialized():
     if not dist.is_available():
         return False
-    if not dist.is_initialized():
-        return False
-    return True
+    return dist.is_initialized()
 
 
 def get_world_size():
@@ -299,6 +292,6 @@ def trim_zeros(arr):
     cmin, cmax = np.where(cols)[0][[0, -1]]
 
     # 裁剪数组
-    trimmed_arr = arr[rmin:rmax + 1, cmin:cmax + 1]
+    trimmed_arr = arr[rmin : rmax + 1, cmin : cmax + 1]
 
     return trimmed_arr
